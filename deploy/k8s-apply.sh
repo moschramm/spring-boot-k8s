@@ -141,6 +141,18 @@ if [[ -f "${HPA_FILE}" ]]; then kubectl apply -f "${HPA_FILE}"; fi
 info "Waiting for app rollout..."
 kubectl -n "${NAMESPACE}" rollout status deployment/spring-boot-demo --timeout=120s || warn "App rollout timed out or failed."
 
+# Deploy observability stack
+read -r -p "Deploy observability stack (Prometheus/Grafana/Loki/Promtail)? [y/N]: " DEPLOY_OBS
+DEPLOY_OBS=${DEPLOY_OBS:-N}
+if [[ "$DEPLOY_OBS" =~ ^[Yy]$ ]]; then
+  info "Applying observability manifests..."
+  kubectl apply -f k8s/observability/prometheus/
+  kubectl apply -f k8s/observability/grafana/
+  kubectl apply -f k8s/observability/loki/
+  kubectl apply -f k8s/observability/promtail/
+  info "Observability resources applied. Check pods with: kubectl -n demo-app get pods -l app=prometheus,app=grafana,app=loki -o wide"
+fi
+
 # Post-deploy summary
 echo
 info "Resources in namespace '${NAMESPACE}':"
