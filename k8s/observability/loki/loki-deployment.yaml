@@ -24,7 +24,7 @@ spec:
             - sh
             - -c
             - |
-              mkdir -p /loki/index /loki/chunks /loki/boltdb-cache || true
+              mkdir -p /loki/index /loki/chunks /loki/boltdb-cache /loki/compactor /loki/wal || true
               chown -R 10001:10001 /loki || true
           volumeMounts:
             - name: loki-storage
