@@ -10,6 +10,12 @@ This document describes Prometheus, Grafana and Loki/Promtail setup deployed in 
 
 ## Deploy
 
+### Using the helper script
+
+Follow the instructions in the [main README](../README.md#using-the-helper-script-recommended).
+
+### Manual steps
+
 1. Ensure namespace exists: `kubectl apply -f k8s/namespace.yaml`
 2. Apply observability manifests:
      ```shell

@@ -7,6 +7,7 @@ This repo contains Kubernetes manifests and a deploy helper script to deploy the
 - App deployment + Service + PDB + optional HPA + Ingress sample
 - Optional PostgreSQL StatefulSet (with PVC templates) for local testing
 - Interactive, idempotent `deploy/k8s-apply.sh` to create secrets and apply manifests
+- Observability stack for metrics and logging, see [Observability documentation](./docs/observability.md)
 
 ## Prerequisites
 - Kubernetes cluster (local e.g. kind/minikube) with `kubectl` configured
@@ -14,7 +15,9 @@ This repo contains Kubernetes manifests and a deploy helper script to deploy the
 - Docker Hub image available: `entity7790/demo:latest`
 - Optionally: Ingress controller (`minikube addons enable ingress`)
 
-## Deploy using the helper script (recommended)
+## Deploy
+
+### Using the helper script (recommended)
 
 - Make the script executable:
   ```shell
@@ -30,9 +33,10 @@ The script will:
 - ask whether you want to deploy a PostgreSQL StatefulSet in the cluster,
 - create/update secrets and (optionally) the Postgres StatefulSet and Service,
 - apply the app Deployment, Service and other resources,
+- apply all resources of the observability stack,
 - wait for rollout and show useful next commands.
 
-## Manual steps
+### Manual steps
 
 1. Create namespace:
   ```shell
