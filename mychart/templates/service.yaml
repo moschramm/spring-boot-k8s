@@ -1,0 +1,17 @@
+{{- if .Values.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ default (printf "%s-service" (include "springboot.fullname" .)) .Values.service.name }}
+  labels:
+{{ include "springboot.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: {{ .Values.service.protocol }}
+      name: {{ default (printf "%s-service" (include "springboot.fullname" .)) .Values.service.name }}
+  selector:
+    app.kubernetes.io/name: {{ .Values.app.name }}
+{{- end }}

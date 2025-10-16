@@ -1,0 +1,179 @@
+# Default values for spring-boot app deployment
+app:
+  name: spring-boot-demo
+  nameOverride: ""
+  fullnameOverride: ""
+
+replicaCount: 2
+
+image:
+  repository: entity7790/demo
+  tag: "latest"
+  pullPolicy: IfNotPresent
+  # For private registries: set to [{"name": "mysecret"}]
+  pullSecrets: []
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/actuator/prometheus"
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+  limits:
+    cpu: "500m"
+    memory: "1Gi"
+
+probes:
+  readiness:
+    path: "/actuator/health/readiness"
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  liveness:
+    path: "/actuator/health/liveness"
+    initialDelaySeconds: 30
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+terminationGracePeriodSeconds: 30
+
+# Kubernetes scheduling overrides
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Default values for postgres db StatefulSet 
+postgres:
+  enabled: true
+
+  # name overrides (defaults to "postgres" to match your existing manifests)
+  nameOverride: ""
+  fullnameOverride: ""
+
+  # Image
+  image:
+    repository: postgres
+    tag: "15-alpine"
+    pullPolicy: IfNotPresent
+
+  # StatefulSet replicas
+  replicaCount: 1
+
+  # Service
+  service:
+    port: 5432
+    # Use "None" for a headless service
+    clusterIP: "None"
+
+  # Security context for the pod
+  securityContext:
+    runAsUser: 999
+    fsGroup: 999
+
+  # Probes (kept the same defaults you provided)
+  probes:
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 20
+      timeoutSeconds: 5
+      failureThreshold: 3
+
+  # Resources (defaults taken from your manifest)
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+
+  # Persistence / PVC
+  persistence:
+    enabled: true
+    accessModes:
+      - ReadWriteOnce
+    storage: 10Gi
+    # leave empty for cluster default storage class
+    storageClass: ""
+
+  # Secret handling
+  secret:
+    # create = true -> chart creates the secret using stringData from below
+    # create = false -> chart expects an existing secret with the name below
+    create: true
+    name: demo-app-db-secret
+    dbUser: demo
+    dbPassword: demo
+
+  # Additional pod spec fields you can override if needed
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# ConfigMap
+config:
+  enabled: true
+  # name used for ConfigMap (if empty uses fullname + "-config")
+  name: demo-app-config
+  data:
+    SPRING_APPLICATION_NAME: spring-boot-demo
+    SPRING_PROFILES_ACTIVE: production
+    SERVER_PORT: "8080"
+    dbName: demo
+    dbHost: postgres.demo-app.svc.cluster.local
+    MANAGEMENT_ENDPOINTS_WEB_BASE_PATH: /actuator
+
+# Service
+service:
+  enabled: true
+  name: spring-boot-demo
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+  protocol: TCP
+
+# HPA (autoscaling/v2)
+hpa:
+  enabled: true
+  name: spring-boot-demo-hpa
+  minReplicas: 2
+  maxReplicas: 6
+  # target CPU utilization as percentage
+  targetCPUUtilizationPercentage: 60
+
+# Ingress
+ingress:
+  enabled: true
+  name: spring-boot-demo-ingress
+  # update host to your domain
+  host: demo.example.local
+  ingressClass: nginx
+  proxyBodySize: "10m"
+  # TLS (optional): set enabled true and secretName + hosts to enable TLS stanza
+  tls:
+    enabled: false
+    secretName: demo-tls
+    hosts:
+      - demo.example.local
+
+# PodDisruptionBudget
+pdb:
+  enabled: true
+  name: spring-boot-demo-pdb
+  minAvailable: 1
+  # TODO: add label for selector?

@@ -1,0 +1,29 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ default (printf "%s-ingress" (include "springboot.fullname" .)) .Values.ingress.name }}
+  labels:
+{{ include "springboot.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.ingress.proxyBodySize | quote }}
+spec:
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.service.name | default (include "springboot.fullname" . ) }}
+                port:
+                  number: {{ .Values.service.port }}
+  ingressClassName: {{ .Values.ingress.ingressClass | quote }}
+{{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+{{ toYaml .Values.ingress.tls.hosts | nindent 6 }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+{{- end }}
+{{- end }}

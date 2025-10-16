@@ -1,154 +1,132 @@
-# k8s-deployments for spring-boot-demo
+# Helm chart: spring-boot-demo
 
-This repo contains Kubernetes manifests and a deploy helper script to deploy the `spring-boot-demo` application and an optional PostgreSQL StatefulSet for local clusters.
+This chart packages the Spring Boot application and optional Postgres
+StatefulSet. It uses `values.yaml` as the chart configuration and renders
+Kubernetes resources from templates.
 
-## Key features
+- Chart location: `./mychart`
+- Release example name used below: `myrelease`
 
-- App deployment + Service + PDB + optional HPA + Ingress sample
-- Optional PostgreSQL StatefulSet (with PVC templates) for local testing
-- Interactive, idempotent `deploy/k8s-apply.sh` to create secrets and apply manifests
+## Contents
+
+- Chart manifest templates: Deployment, Service, ConfigMap, Secret (optional),
+  Ingress, HPA, PodDisruptionBudget, Postgres StatefulSet (optional).
+- Configuration: `values.yaml` — the single source of truth for chart behavior.
 
 ## Prerequisites
-- Kubernetes cluster (local e.g. kind/minikube) with `kubectl` configured
-- If using HPA: `metrics-server` installed (`minikube addons enable metrics-server`)
-- Docker Hub image available: `entity7790/demo:latest`
-- Optionally: Ingress controller (`minikube addons enable ingress`)
 
-## Deploy using the helper script (recommended)
+- Kubernetes cluster accessible with `kubectl`.
+- If using HPA: metrics-server must be available on the cluster.
+- If using Ingress: an ingress controller (e.g. nginx) must be installed.
+- Docker image available (example image used in values:
+  `entity7790/demo:latest`)
 
-- Make the script executable:
-  ```shell
-  chmod +x deploy/k8s-apply.sh
-  ```
-- Run it:
-  ```shell
-  ./deploy/k8s-apply.sh
-  ```
+## Quick start (recommended)
 
-The script will:
-- ask for DB credentials (hidden input) and JDBC URL,
-- ask whether you want to deploy a PostgreSQL StatefulSet in the cluster,
-- create/update secrets and (optionally) the Postgres StatefulSet and Service,
-- apply the app Deployment, Service and other resources,
-- wait for rollout and show useful next commands.
+- Lint & render locally:
+  - `helm lint ./mychart`
+  - `helm template myrelease ./mychart --namespace demo-app`
+- Install (create namespace if needed):
+  - `helm install myrelease ./mychart --namespace demo-app --create-namespace -f values.yaml`
+- Upgrade / install idempotently:
+  - `helm upgrade --install myrelease ./mychart --namespace demo-app -f values.yaml`
 
-## Manual steps
+## Configuration (how to customize)
 
-1. Create namespace:
-  ```shell
-  kubectl apply -f k8s/namespace.yaml
-  ```
+- Primary configuration lives in `values.yaml`. Typical keys:
+  - `image.repository`, `image.tag`, `image.pullPolicy` — container image.
+  - `replicaCount` — number of app replicas.
+  - `config` — data rendered into the templated ConfigMap.
+  - `postgres.enabled` — `true` to create the bundled Postgres StatefulSet +
+    Service; `false` to use an external DB.
+  - `postgres.secret.create` — when `true` the chart creates the DB Secret from
+    values; when `false` the chart expects an existing Secret (recommended for
+    production).
+  - `ingress.enabled`, `hpa.enabled`, `pdb.enabled`, `namespace.create` —
+    feature toggles.
+- Environment-specific overrides:
+  - Use separate files:
+    `helm install ... -f values.yaml -f values.secrets.yaml` (do not commit
+    secrets).
+  - Or use `--set` for one-off overrides: `--set image.tag=1.2.3`.
 
-2. Create DB secret (do NOT commit real secrets into git):
-  ```shell
-  kubectl -n demo-app create secret generic demo-app-db-secret \
-    --from-literal=POSTGRES_USER=demo \
-    --from-literal=POSTGRES_PASSWORD="REALLY_SECRET" \
-    --from-literal=JDBC_DATABASE_URL="jdbc:postgresql://postgres.demo-app.svc.cluster.local:5432/demo"
-  ```
+## Secrets and sensitive data
 
-3. (Optional) Create image pull secret if image is private:
-  ```shell
-  kubectl -n demo-app create secret docker-registry dockerhub-pull-secret \
-  --docker-username=<user> --docker-password=<token> --docker-server=https://index.docker.io/v1/
-  ```
+- Do not commit plaintext secrets into the repo. Options:
+  - Set `postgres.secret.create: false` and create the Secret out-of-band (e.g.,
+    `kubectl create secret generic demo-app-db-secret --from-literal=POSTGRES_PASSWORD=...`).
+  - Use SealedSecrets / ExternalSecrets / Vault to manage secrets safely.
+- When `postgres.secret.create: true`, the chart creates a Secret from `values`
+  (convenient for local/dev only).
 
-4. Apply ConfigMap and resources:
-  ```shell
-  kubectl apply -f k8s/configmap.yaml
-  kubectl apply -f k8s/deployment.yaml
-  kubectl apply -f k8s/service.yaml
-  kubectl apply -f k8s/pdb.yaml
-  # optional:
-  kubectl apply -f postgres.yaml
-  kubectl apply -f k8s/ingress.yaml
-  kubectl apply -f k8s/hpa.yaml
-  ```
+## Namespace handling
 
-5. Verify:
-  ```shell
-  kubectl -n demo-app get all
-  kubectl -n demo-app get hpa
-  kubectl -n demo-app describe deployment spring-boot-demo
-  kubectl -n demo-app logs -l app.kubernetes.io/name=spring-boot-demo -c app --tail=200
-  ```
+- Best practice: do not force namespace creation unless you want the chart to
+  manage it.
+  - To let Helm create the namespace, use `--create-namespace` at install time.
+  - If you manage namespaces externally, install with `--namespace demo-app`.
 
-## Rolling update (update image tag)
+## Optional Postgres
 
-```shell
-kubectl -n demo-app set image deployment/spring-boot-demo app=entity7790/demo:latest
-kubectl -n demo-app rollout status deployment/spring-boot-demo
-```
+- For local testing the chart can deploy a headless Service + StatefulSet with
+  PVC template:
+  - Enable with `postgres.enabled: true`.
+  - For production, prefer an external managed DB and set
+    `postgres.enabled: false`.
+  - If you enable the bundled Postgres, either:
+    - Let the chart create the DB Secret (dev), or
+    - Provide the Secret externally (recommended for production).
 
-## Port‑forward for quick local testing
+## Useful commands
 
-```shell
-kubectl -n demo-app port-forward svc/spring-boot-demo 8080:80
-# then access http://localhost:8080/actuator/health
-```
+- Render templates to verify manifests (optionally with debug output):
+  - `helm template myrelease ./mychart --namespace demo-app`
+  - `helm template --debug myrelease ./mychart --namespace demo-app`
+- Lint chart:
+  - `helm lint ./mychart`
+- Install (create namespace):
+  - `helm install myrelease ./mychart --namespace demo-app --create-namespace -f values.yaml`
+- Upgrade (safe deploy):
+  - `helm upgrade --install myrelease ./mychart -f values.yaml`
+- Uninstall / cleanup:
+  - `helm uninstall myrelease --namespace demo-app`
+  - (If chart created namespace and you want to remove it)
+    `kubectl delete namespace demo-app`
 
-## Local NGINX ingress setup (using minikube)
+## Verifying resources
 
-1. nable NGINX Ingress controller:
-  ```shell
-  minikube addons enable ingress
-  ```
-2. Get minikube IP:
-  ```shell
-  minikube ip
-  ```
-3. Add an /etc/hosts entry (requires sudo). Replace IP and host as needed:
-  ```shell
-  echo "$(minikube ip) demo.example.local" | sudo tee -a /etc/hosts
-  ```
-4. Test the endpoint from host
-- Simple curl (after hosts entry):
-  ```shell
-  curl -v http://demo.example.local/actuator/health
-  ```
-- Or explicitly send Host header (if you prefer using minikube IP directly):
-  ```shell
-  curl -H "Host: demo.example.local" http://$(minikube ip)/actuator/health
-  ```
+- After install:
+  - `kubectl -n demo-app get all`
+  - `kubectl -n demo-app get hpa`
+  - `kubectl -n demo-app describe deployment <release>-spring-boot-demo`
+  - `kubectl -n demo-app logs -l app.kubernetes.io/name=spring-boot-demo -c app --tail=200`
 
-## Final result (`demo-app` namespace)
+## Ingress (local dev with minikube)
 
-```shell
-kubectl get all,ing -n demo-app
-NAME                                    READY   STATUS    RESTARTS        AGE
-pod/postgres-0                          1/1     Running   0               6h
-pod/spring-boot-demo-7b7686d97f-m95ps   1/1     Running   8 (99m ago)     6h
-pod/spring-boot-demo-7b7686d97f-plkh9   1/1     Running   6 (5h50m ago)   6h
+- If using minikube you may need to enable ingress and add a hosts entry to test
+  a host-based rule:
+  - `minikube addons enable ingress`
+  - Add `/etc/hosts` mapping for the host used in `values` (e.g.,
+    `demo.example.local`) to the cluster IP.
 
-NAME                       TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)    AGE
-service/postgres           ClusterIP   None          <none>        5432/TCP   6h
-service/spring-boot-demo   ClusterIP   10.97.65.80   <none>        80/TCP     6h
+## Best practices & notes
 
-NAME                               READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/spring-boot-demo   2/2     2            2           6h
+- Use `values.yaml` as the authoritative configuration and template a
+  ConfigMap/Secret from it for pods to consume — keeps Helm as the single source
+  of truth and avoids drift. Provide a `create: false` toggle for operators who
+  manage ConfigMaps/Secrets externally.
+- Avoid storing production secrets in `values.yaml` in VCS — use sealed secrets
+  or external secret managers.
+- Test templates locally via `helm template` before applying to a cluster. Use
+  `helm lint` regularly.
+- Use CI/CD or GitOps (ArgoCD/Flux) to manage image updates and upgrades; prefer
+  `helm upgrade --install` in pipelines.
 
-NAME                                          DESIRED   CURRENT   READY   AGE
-replicaset.apps/spring-boot-demo-7b7686d97f   2         2         2       6h
+## Troubleshooting
 
-NAME                        READY   AGE
-statefulset.apps/postgres   1/1     6h
-
-NAME                                                       REFERENCE                     TARGETS       MINPODS   MAXPODS   RE
-PLICAS   AGE
-horizontalpodautoscaler.autoscaling/spring-boot-demo-hpa   Deployment/spring-boot-demo   cpu: 1%/60%   2         6         2
-         6h
-
-NAME                                                 CLASS    HOSTS                ADDRESS        PORTS   AGE
-ingress.networking.k8s.io/spring-boot-demo-ingress   <none>   demo.example.local   192.168.49.2   80      6h
-```
-
-## Notes
-
-- For production do not store secrets in Git — use external secret stores (Vault, SealedSecrets, ExternalSecrets).
-- Use CI/CD to update image in the Deployment or use a GitOps approach (ArgoCD/Flux).
-- Use Readiness/Liveness probes tied to Actuator; do not use heavy checks that slow startup.
-- Use resource requests & limits to enable scheduler decisions and HPA.
-- Use structured logs (JSON) in prod and collect them from stdout.
-- Protect actuator endpoints (network policies or Spring Security) in production.
-- StatefulSet here is single‑replica by default — for production use managed DBs or a HA design.
-- Ensure your cluster has a StorageClass that satisfies the requested storage, or pass an existing storage class to the script.
+- YAML parse / indentation errors: inspect `helm template ...` output and check
+  `nindent`/`toYaml` usage in templates — common Helm issues come from incorrect
+  indentation when rendering multi-line blocks.
+- HPA not scaling: ensure `metrics-server` is installed and reachable.
+- App cannot connect to DB: check Secret names/keys and the JDBC URL produced by
+  the chart.

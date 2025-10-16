@@ -1,0 +1,12 @@
+{{- if .Values.config.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ default (printf "%s-config" (include "springboot.fullname" .)) .Values.config.name }}
+  labels:
+{{ include "springboot.labels" . | nindent 4 }}
+data:
+{{- range $k, $v := .Values.config.data }}
+  {{ $k }}: {{ $v | quote }}
+{{- end }}
+{{- end }}
