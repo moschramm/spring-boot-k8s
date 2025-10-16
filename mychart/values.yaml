@@ -107,7 +107,7 @@ postgres:
     enabled: true
     accessModes:
       - ReadWriteOnce
-    storage: 10Gi
+    storage: 1Gi
     # leave empty for cluster default storage class
     storageClass: ""
 
