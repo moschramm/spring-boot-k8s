@@ -38,7 +38,7 @@ spec:
               containerPort: {{ .Values.service.targetPort }}
           env:
             - name: SPRING_PROFILES_ACTIVE
-              value: {{ .Values.config.SPRING_PROFILES_ACTIVE | quote }}
+              value: {{ .Values.config.activeProfiles | quote }}
             - name: SPRING_DATASOURCE_URL
               value: {{ printf "jdbc:postgresql://%s:%d/%s" .Values.config.data.dbHost (int .Values.postgres.service.port) .Values.config.data.dbName | quote }}
             - name: SPRING_DATASOURCE_USERNAME
@@ -55,12 +55,12 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.config.name }}
-                  key: SPRING_APPLICATION_NAME
+                  key: appName
             - name: MANAGEMENT_ENDPOINTS_WEB_BASE_PATH
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.config.name }}
-                  key: MANAGEMENT_ENDPOINTS_WEB_BASE_PATH
+                  key: managementEndpoints
           resources:
 {{ toYaml .Values.resources | nindent 12 }}
           readinessProbe:

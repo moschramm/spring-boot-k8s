@@ -131,12 +131,12 @@ config:
   # name used for ConfigMap (if empty uses fullname + "-config")
   name: demo-app-config
   data:
-    SPRING_APPLICATION_NAME: spring-boot-demo
-    SPRING_PROFILES_ACTIVE: production
-    SERVER_PORT: "8080"
+    appName: spring-boot-demo
+    activeProfiles: production
+    serverPort: "8080"
     dbName: demo
     dbHost: postgres.demo-app.svc.cluster.local
-    MANAGEMENT_ENDPOINTS_WEB_BASE_PATH: /actuator
+    managementEndpoints: /actuator
 
 # Service
 service:
